@@ -15,20 +15,35 @@ os.environ['AWS_SECRET_ACCESS_KEY']=config.get("default", 'AWS_SECRET_ACCESS_KEY
 
 
 def create_spark_session():
+    """
+    This procedure executes COPY into the staging tables.
+
+    INPUTS:
+    * cur the cursor variable
+    * conn the database connection
+    """
     configure = SparkConf().setAppName("app name").setMaster("local")
     sc = SparkContext(conf = configure)
     spark = SparkSession.builder\
-                    .config('fs.s3a.access.key', os.environ['AWS_ACCESS_KEY_ID']) \
-                    .config('fs.s3a.secret.key', os.environ['AWS_SECRET_ACCESS_KEY']) \
+                    .config("spark.hadoop.fs.s3a.awsAccessKeyId", os.environ['AWS_ACCESS_KEY_ID']) \
+                    .config("spark.hadoop.fs.s3a.awsSecretAccessKey", os.environ['AWS_SECRET_ACCESS_KEY']) \
+                    .config("spark.hadoop.fs.s3a.impl","org.apache.hadoop.fs.s3a.S3AFileSystem") \
                     .appName("app name")\
-                     .config("spark.jars.packages","org.apache.hadoop:hadoop-aws:2.7.3")\
-                     .getOrCreate()    
+                    .config("spark.jars.packages","org.apache.hadoop:hadoop-aws:2.7.3")\
+                    .getOrCreate()    
     return spark
 
 
 def process_song_data(spark, input_data, output_data):
+    """
+    This procedure executes COPY into the staging tables.
+
+    INPUTS:
+    * cur the cursor variable
+    * conn the database connection
+    """
     # get filepath to song data file
-    song_data = input_data + "song_data/*/*/*/*.json"
+    song_data = input_data + "song_data/A/A/*/*.json"
     
     # read song data file
     df = spark.read.format("json").load(song_data)
@@ -66,8 +81,15 @@ def process_song_data(spark, input_data, output_data):
 
 
 def process_log_data(spark, input_data, output_data):
+    """
+    This procedure executes COPY into the staging tables.
+
+    INPUTS:
+    * cur the cursor variable
+    * conn the database connection
+    """
     # get filepath to log data file
-    log_data = input_data + "log_data/*.json"
+    log_data = input_data + "log-data/*.json"
 
     # read log data file
     df = spark.read.format("json").load(log_data)
@@ -93,7 +115,7 @@ def process_log_data(spark, input_data, output_data):
     # create timestamp column from original timestamp column
     get_timestamp = udf(lambda x: x/1000, IntegerType())
     #df = df.withColumn('start_time', get_timestamp('ts'))
-    df = df.withColumn('start_time', to_timestamp(df['ts']/1000))
+    df = df.withColumn('start_time', get_timestamp(df['ts']/1000))
     
     # create datetime column from original timestamp column
     get_datetime = udf(lambda x: from_unixtime(x), TimestampType())
@@ -113,7 +135,7 @@ def process_log_data(spark, input_data, output_data):
     time_table.write.parquet(os.path.join(output_data, "time/"), mode='overwrite', partitionBy=["year","month"])
 
     # read in song data to use for songplays table
-    song_data = input_data + "song_data/*/*/*/*.json"
+    song_data = input_data + "song_data/A/A/*/*.json"
     
     # read song data file
     song_df = spark.read.format("json").load(song_data)
@@ -140,9 +162,16 @@ def process_log_data(spark, input_data, output_data):
 
 
 def main():
+    """
+    This procedure executes COPY into the staging tables.
+
+    INPUTS:
+    * cur the cursor variable
+    * conn the database connection
+    """
     spark = create_spark_session()
-    #input_data = "s3a://udacity-dend/"
-    input_data = "data/"
+    input_data = "s3a://udacity-dend/"
+    #input_data = "data/"
     output_data = "data/output/"
     
     process_song_data(spark, input_data, output_data)    
