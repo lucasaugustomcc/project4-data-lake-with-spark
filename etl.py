@@ -16,11 +16,7 @@ os.environ['AWS_SECRET_ACCESS_KEY']=config.get("default", 'AWS_SECRET_ACCESS_KEY
 
 def create_spark_session():
     """
-    This procedure executes COPY into the staging tables.
-
-    INPUTS:
-    * cur the cursor variable
-    * conn the database connection
+    This procedure creates the spark session.
     """
     configure = SparkConf().setAppName("app name").setMaster("local")
     sc = SparkContext(conf = configure)
@@ -45,8 +41,7 @@ def process_song_data(spark, input_data, output_data):
     * output_data the directory path to save the data
     """
     # get filepath to song data file
-    # s3a://udacity-dend/song_data/A/A/A/TRAAAAK128F9318786.json
-    song_data = input_data + "song_data/A/A/A/*.json"
+    song_data = input_data + "song_data/*/*/*/*.json"
     
     # read song data file
     df = spark.read.format("json").load(song_data)
@@ -88,8 +83,10 @@ def process_song_data(spark, input_data, output_data):
         os.path.join(output_data, "artists/"), 
         mode="overwrite")
 
+    return df
 
-def process_log_data(spark, input_data, output_data):
+
+def process_log_data(spark, input_data, output_data, song_df):
     """
     This procedure loads log data then extracts the desired columns and join some tables.
     Finally it loads the data into the users, time and songplays parquet files.
@@ -98,6 +95,7 @@ def process_log_data(spark, input_data, output_data):
     * spark the instance variable
     * input_data the directory path to load the data
     * output_data the directory path to save the data
+    * song_df the dataframe for songs data
     """
     # get filepath to log data file
     log_data = input_data + "log-data/*/*/*.json"
@@ -145,12 +143,6 @@ def process_log_data(spark, input_data, output_data):
         mode='overwrite', 
         partitionBy=["year","month"])
 
-    # read in song data to use for songplays table
-    song_data = input_data + "song_data/A/A/*/*.json"
-    
-    # read song data file
-    song_df = spark.read.format("json").load(song_data)
-
     # extract columns from joined song and log datasets to create songplays table 
     songplays_table = df.join(
         song_df, 
@@ -187,8 +179,8 @@ def main():
     input_data = "s3a://udacity-dend/"
     output_data = "s3a://data-engineering-nd-2021/output/"
     
-    process_song_data(spark, input_data, output_data)    
-    process_log_data(spark, input_data, output_data)
+    song_df = process_song_data(spark, input_data, output_data)    
+    process_log_data(spark, input_data, output_data, song_df)
 
 
 if __name__ == "__main__":
