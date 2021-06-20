@@ -13,5 +13,15 @@ AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 ```
 
+## EMR Environment configuration
+Add to the ~/.bashrc file.
+
+```bash
+export SPARK_HOME=/usr/lib/spark
+export PYTHONPATH=$SPARK_HOME/python/lib/py4j-0.10.7-src.zip:$PYTHONPATH
+export PYTHONPATH=$SPARK_HOME/python:$SPARK_HOME/python/build:$PYTHONPATH
+```
+
 ## How to run the Python scripts
-1. Run *etl.py* to execute the ETL with spark.
+1. Connect to the EMR cluster: ssh -i key.pem hadoop@ecX-X-X-X-X.compute-1.amazonaws.com
+1. Run *etl.py* to execute the ETL with Spark: python etl.py
