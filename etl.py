@@ -36,14 +36,17 @@ def create_spark_session():
 
 def process_song_data(spark, input_data, output_data):
     """
-    This procedure executes COPY into the staging tables.
+    This procedure loads songs data then extracts the desired columns.
+    Finally it loads the data into the songs and the artists parquet files.
 
     INPUTS:
-    * cur the cursor variable
-    * conn the database connection
+    * spark the instance variable
+    * input_data the directory path to load the data
+    * output_data the directory path to save the data
     """
     # get filepath to song data file
-    song_data = input_data + "song_data/A/A/*/*.json"
+    # s3a://udacity-dend/song_data/A/A/A/TRAAAAK128F9318786.json
+    song_data = input_data + "song_data/A/A/A/*.json"
     
     # read song data file
     df = spark.read.format("json").load(song_data)
@@ -61,7 +64,11 @@ def process_song_data(spark, input_data, output_data):
                     """)
     
     # write songs table to parquet files partitioned by year and artist
-    songs_table.write.parquet(os.path.join(output_data, "songs/"), mode='overwrite', partitionBy=["year","artist_id"])
+    songs_table.write.parquet(
+        os.path.join(output_data, "songs/"), 
+        mode='overwrite', 
+        partitionBy=["year","artist_id"]
+        )
 
     # extract columns to create artists table
     artists_table = spark.sql("""
@@ -77,19 +84,23 @@ def process_song_data(spark, input_data, output_data):
                     """)
     
     # write artists table to parquet files
-    artists_table.write.parquet(os.path.join(output_data, "artists/"), mode="overwrite")
+    artists_table.write.parquet(
+        os.path.join(output_data, "artists/"), 
+        mode="overwrite")
 
 
 def process_log_data(spark, input_data, output_data):
     """
-    This procedure executes COPY into the staging tables.
+    This procedure loads log data then extracts the desired columns and join some tables.
+    Finally it loads the data into the users, time and songplays parquet files.
 
     INPUTS:
-    * cur the cursor variable
-    * conn the database connection
+    * spark the instance variable
+    * input_data the directory path to load the data
+    * output_data the directory path to save the data
     """
     # get filepath to log data file
-    log_data = input_data + "log-data/*.json"
+    log_data = input_data + "log-data/*/*/*.json"
 
     # read log data file
     df = spark.read.format("json").load(log_data)
@@ -113,13 +124,9 @@ def process_log_data(spark, input_data, output_data):
     users_table.write.parquet(os.path.join(output_data, "users/"), mode="overwrite")
 
     # create timestamp column from original timestamp column
-    get_timestamp = udf(lambda x: x/1000, IntegerType())
-    #df = df.withColumn('start_time', get_timestamp('ts'))
-    df = df.withColumn('start_time', get_timestamp(df['ts']/1000))
-    
+    df = df.withColumn('start_time', to_timestamp(df['ts']/1000))
+
     # create datetime column from original timestamp column
-    get_datetime = udf(lambda x: from_unixtime(x), TimestampType())
-    #df = df.withColumn('datetime', from_unixtime('start_time'))
     df = df.withColumn('datetime', to_date('start_time'))
 
     # extract columns to create time table
@@ -129,10 +136,14 @@ def process_log_data(spark, input_data, output_data):
                 .withColumn("month",month("datetime"))\
                 .withColumn("year",year("datetime"))\
                 .withColumn("weekday",dayofweek("datetime"))\
-                .select("ts","start_time","hour", "day", "week", "month", "year", "weekday").drop_duplicates()
+                .select("ts","start_time","hour", "day", "week", "month", "year", "weekday")\
+                .drop_duplicates()
     
     # write time table to parquet files partitioned by year and month
-    time_table.write.parquet(os.path.join(output_data, "time/"), mode='overwrite', partitionBy=["year","month"])
+    time_table.write.parquet(
+        os.path.join(output_data, "time/"), 
+        mode='overwrite', 
+        partitionBy=["year","month"])
 
     # read in song data to use for songplays table
     song_data = input_data + "song_data/A/A/*/*.json"
@@ -143,7 +154,9 @@ def process_log_data(spark, input_data, output_data):
     # extract columns from joined song and log datasets to create songplays table 
     songplays_table = df.join(
         song_df, 
-        (df.song == song_df.title) & (df.artist == song_df.artist_name) & (df.length == song_df.duration), 
+        (df.song == song_df.title) 
+            & (df.artist == song_df.artist_name) 
+            & (df.length == song_df.duration), 
         'left_outer')\
             .select(
                 df.start_time,
@@ -158,21 +171,21 @@ def process_log_data(spark, input_data, output_data):
                 month('start_time').alias('month'))
 
     # write songplays table to parquet files partitioned by year and month
-    songplays_table.write.parquet(os.path.join(output_data, "songplays/"), mode='overwrite', partitionBy=["year","month"])
+    songplays_table.write.parquet(
+        os.path.join(output_data, "songplays/"), 
+        mode='overwrite', 
+        partitionBy=["year","month"]
+        )
 
 
 def main():
     """
-    This procedure executes COPY into the staging tables.
-
-    INPUTS:
-    * cur the cursor variable
-    * conn the database connection
+    This procedure invokes the procedure to create the spark session
+    and the procedure to process the song and log data.
     """
     spark = create_spark_session()
     input_data = "s3a://udacity-dend/"
-    #input_data = "data/"
-    output_data = "data/output/"
+    output_data = "s3a://data-engineering-nd-2021/output/"
     
     process_song_data(spark, input_data, output_data)    
     process_log_data(spark, input_data, output_data)
